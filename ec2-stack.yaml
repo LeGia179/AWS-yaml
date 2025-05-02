@@ -1,0 +1,105 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: EC2 mit ALB, Target Group und Auto Scaling
+
+Parameters:
+  AmiId:
+    Type: String
+    Description: AMI ID für EC2-Instanzen
+
+Resources:
+
+  # Sicherheitsgruppe für ALB (HTTP-Zugriff)
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Erlaube HTTP-Zugriff auf ALB
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+
+  # Sicherheitsgruppe für EC2-Instanzen (HTTP & SSH)
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Erlaube HTTP & SSH Zugriff auf Instanzen
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+
+  # Target Group
+  MyTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: MyTargetGroup
+      Port: 80
+      Protocol: HTTP
+      VpcId: vpc-xxxxxxxx   # <-- ERSETZEN mit deiner VPC-ID
+      TargetType: instance
+      HealthCheckPath: /
+
+  # Application Load Balancer
+  MyLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: MyALB
+      Scheme: internet-facing
+      Subnets:
+        - subnet-xxxxxxxx  # <-- ERSETZEN
+        - subnet-yyyyyyyy  # <-- ERSETZEN
+      SecurityGroups:
+        - !Ref ALBSecurityGroup
+
+  # Listener für den Load Balancer
+  MyListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref MyLoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref MyTargetGroup
+
+  # Launch Template für Auto Scaling
+  MyLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateData:
+        InstanceType: t2.micro
+        ImageId: !Ref AmiId
+        SecurityGroupIds:
+          - !Ref InstanceSecurityGroup
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: ASG-Instance
+
+  # Auto Scaling Gruppe
+  MyAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier:
+        - subnet-1a  # <-- ERSETZEN
+        - subnet-1b  # <-- ERSETZEN
+      LaunchTemplate:
+        LaunchTemplateId: !Ref MyLaunchTemplate
+        Version: !GetAtt MyLaunchTemplate.LatestVersionNumber
+      MinSize: '1'
+      MaxSize: '3'
+      DesiredCapacity: '2'
+      TargetGroupARNs:
+        - !Ref MyTargetGroup
+
+Outputs:
+  LoadBalancerDNS:
+    Description: DNS-Name des ALB
+    Value: !GetAtt MyLoadBalancer.DNSName

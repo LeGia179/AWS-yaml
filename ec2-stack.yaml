@@ -1,72 +1,11 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: EC2 mit ALB, Target Group und Auto Scaling
-
-Parameters:
-  AmiId:
-    Type: String
-    Description: AMI ID für EC2-Instanzen
+Description: CloudFormation Template zum Erstellen einer EC2-Instanz (t2.micro)
 
 Resources:
-
-  # Sicherheitsgruppe für ALB (HTTP-Zugriff)
-  ALBSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
+  EC2Instance:
+    Type: AWS::EC2::Instance
     Properties:
-      GroupDescription: Erlaube HTTP-Zugriff auf ALB
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: 0.0.0.0/0
-
-  # Sicherheitsgruppe für EC2-Instanzen (HTTP & SSH)
-  InstanceSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Erlaube HTTP & SSH Zugriff auf Instanzen
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
-          CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: 0.0.0.0/0
-
-
-  # Launch Template für Auto Scaling
-  MyLaunchTemplate:
-    Type: AWS::EC2::LaunchTemplate
-    Properties:
-      LaunchTemplateData:
-        InstanceType: t2.micro
-        ImageId: !Ref AmiId
-        SecurityGroupIds:
-          - !Ref InstanceSecurityGroup
-        TagSpecifications:
-          - ResourceType: instance
-            Tags:
-              - Key: Name
-                Value: ASG-Instance
-
-  # Auto Scaling Gruppe
-  MyAutoScalingGroup:
-    Type: AWS::AutoScaling::AutoScalingGroup
-    Properties:
-      VPCZoneIdentifier:
-        - subnet-1a  # <-- ERSETZEN
-        - subnet-1b  # <-- ERSETZEN
-      LaunchTemplate:
-        LaunchTemplateId: !Ref MyLaunchTemplate
-        Version: !GetAtt MyLaunchTemplate.LatestVersionNumber
-      MinSize: '1'
-      MaxSize: '3'
-      DesiredCapacity: '2'
-      TargetGroupARNs:
-        - !Ref MyTargetGroup
-
-Outputs:
-  LoadBalancerDNS:
-    Description: DNS-Name des ALB
-    Value: !GetAtt MyLoadBalancer.DNSName
+      InstanceType: t2.micro
+      ImageId: ami-0e9527f5ffe6b54fd                                 # <-- WIRD AUTOMATISCH VOM PARAMETER GESETZT
+      SecurityGroupIds:
+        - sg-05dffbeeaa0e71888                           # <-- WIRD AUTOMATISCH VOM PARAMETER GESETZT
